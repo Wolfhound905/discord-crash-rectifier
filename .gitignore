@@ -1,0 +1,5 @@
+# nothing much going in here
+/env
+.env
+/.vscode
+**/_pycahe
