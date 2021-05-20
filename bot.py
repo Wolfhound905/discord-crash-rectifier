@@ -1,13 +1,15 @@
 import os
 import re
-from os import remove, path
-
+from os import path, remove
 
 import discord
 import requests
 from bs4 import BeautifulSoup
+from colored_print import ColoredPrint
 from discord.ext import commands
 from dotenv import load_dotenv
+
+log = ColoredPrint()
 
 bot = commands.Bot(command_prefix="there is none")
 load_dotenv()
@@ -15,11 +17,10 @@ load_dotenv()
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user.name}")
+    log.info(f"Logged in as {bot.user.name}\n")
     if not path.exists("blacklist.txt"):
-        open("blacklist.txt", "w")
+        open("blacklist.txt", "w")   
 
-    
 
 
 def Find(string):
@@ -49,7 +50,11 @@ def checkFile(url):
     if "thumbs.gfycat.com" in url:  # Gfycat is the source for most of these
         # Both crash, only second is detectable
         url = url.replace("-max-1mb.gif", "-mobile.mp4")
+        url = url.replace(".webp", "-mobile.mp4")
         url = url.replace("-size_restricted.gif", "-mobile.mp4")  # see above
+    if "media.giphy.com" in url: # mp4 are easier to read and less compressed.
+        url = url.replace("media.", "i.")
+        url = url.replace(".gif", ".mp4")
     # TODO Check Blacklist
     r = requests.get(url, allow_redirects=True)
     urlName = url[8:]
@@ -60,33 +65,32 @@ def checkFile(url):
     exploitTypes = [
         # This is an abnormal part of some crash mp4's. Most, if not all mp4's need stts, but not (stts
         b"(stts",
-        b"pasp" # This allows mp4's the change in size which discord no likey
     ]
 
     for exploits in exploitTypes:
         test = s.find(exploits)
         if test != -1:
             remove(urlName)
-            print(f"Found {exploits}")
+            log.err(f"Found {exploits}. Character {test}\nThis was a client crasher\n")
             return True
     options_1 = s.find(b'options')
     if options_1 != -1:
         options_2 = s.find(b'options', options_1 + 1)
         if options_2 != -1:
-            print("Found multiple options in same file.") # discord doesnt like this
+            log.err("Found multiple options in same file.") # discord doesnt like this
             remove(urlName)
             return True
     remove(urlName)  # Delete the file
     return False
 
 
-def checkLink(url):  # Mostly applies to gfycat, but uses og:video to find what discord embeds
+def checkLink(url):  # Mostly applies to (gfycat and giphy), but uses og:video to find what discord embeds
     url = url.replace("\\", "")
     r = requests.get(url, allow_redirects=True)
     soup = BeautifulSoup(str(r.content), "html.parser")
     mp4 = soup.find("meta", property="og:video")
-    print(
-        f'Was gfycat so now using: {mp4["content"]}' if mp4 else "No meta mp4 given")
+    log.success(
+        f'Has og:video, now using: {mp4["content"]}\n' if mp4 else "No meta mp4 given\n")
     if mp4:
         return checkFile(mp4["content"])  # If there is an og:video
     else:
@@ -115,41 +119,41 @@ async def checkMessage(message):
     if message.attachments:  # If the message has attachments
         for Attachment in message.attachments:
             url = Attachment.url
-        print(url)
+        log.info(url)
         crasher = checkFile(url)
         if crasher:
             await message.delete()
             await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
+            return
         else:
-            print("This prob doesnt crash")
+            log.success("This probably doesnt contain a crash\n")
     if urls:  # If the message contains a url
         for url in urls:
             if checkBlacklist(url):
                 await message.delete()
                 await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
                 return
-            print(f"Getting {url}")
+            log.warn(f"Getting {url}")
             # If the site uses head meta tags for the file link
             if checkContent(url) == "text/html":
+                log.info("The link was text/html")
                 crasher = checkLink(url)
             else:
+                log.info("The link was video/gif")
                 crasher = checkFile(url)
             if crasher:
                 await message.delete()
                 updateBlacklist(url)
                 await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
+                return
             else:
-                print("This prob doesnt crash")
+                log.success("This probably doesnt contain a crash\n")
 
 
 @bot.event
 async def on_message(message):
     await checkMessage(message)
 
-
-@bot.event
-async def on_message_edit(before, after):
-    await checkMessage(after)
 
 
 bot.run(os.getenv("token"))
