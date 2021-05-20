@@ -60,12 +60,20 @@ def checkFile(url):
     exploitTypes = [
         # This is an abnormal part of some crash mp4's. Most, if not all mp4's need stts, but not (stts
         b"(stts",
-        b"Lavf58", b"Lavc58"  # These are artifacts of ffmpeg
+        b"pasp" # This allows mp4's the change in size which discord no likey
     ]
 
     for exploits in exploitTypes:
         test = s.find(exploits)
         if test != -1:
+            remove(urlName)
+            print(f"Found {exploits}")
+            return True
+    options_1 = s.find(b'options')
+    if options_1 != -1:
+        options_2 = s.find(b'options', options_1 + 1)
+        if options_2 != -1:
+            print("Found multiple options in same file.") # discord doesnt like this
             remove(urlName)
             return True
     remove(urlName)  # Delete the file
@@ -127,7 +135,6 @@ async def checkMessage(message):
             else:
                 crasher = checkFile(url)
             if crasher:
-                print(f"Found")
                 await message.delete()
                 updateBlacklist(url)
                 await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
