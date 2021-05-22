@@ -185,10 +185,11 @@ async def on_message(message):
 @bot.event
 async def on_message_edit(before, after):
     print(after)
-    try:
-        await checkMessage(after)
-    except discord.errors.NotFound:
-        pass
+    if before != after:
+        try:
+            await checkMessage(after)
+        except discord.errors.NotFound:
+            pass
 
 
 bot.run(os.getenv("token"))
