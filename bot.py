@@ -162,7 +162,7 @@ async def checkMessage(message):
             if content == "text/html":
                 log.info("The link was text/html")
                 crasher = checkLink(url)
-            elif checkContent(url)[0:5] in ["video", "image"]:
+            elif str(content)[0:5] in ["video", "image"]:
                 log.info("The link was video/gif")
                 crasher = checkFile(url)
             else:
@@ -179,13 +179,11 @@ async def checkMessage(message):
 
 @bot.event
 async def on_message(message):
-    print(message)
     await checkMessage(message)
 
 
 @bot.event
 async def on_message_edit(before, after):
-    print(after)
     if before != after:
         try:
             await checkMessage(after)
