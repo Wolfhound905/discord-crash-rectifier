@@ -1,7 +1,6 @@
 import os
 import re
 from os import path, remove
-
 import discord
 import requests
 from bs4 import BeautifulSoup
@@ -19,8 +18,7 @@ load_dotenv()
 async def on_ready():
     log.info(f"Logged in as {bot.user.name}\n")
     if not path.exists("blacklist.txt"):
-        open("blacklist.txt", "w")   
-
+        open("blacklist.txt", "w")
 
 
 def Find(string):
@@ -33,7 +31,7 @@ mimes = ["video", "image", "text/"]  # Note, checks five characters!
 
 
 def checkContent(url):  # Uses Return HTTP headers to detect filetype
-    r = requests.get(url, stream=True)
+    r = requests.head(url, stream=True, allow_redirects=True)
     contentType = r.headers["Content-Type"].split(";")[0]
     return checkMIME(contentType)
 
@@ -52,7 +50,7 @@ def checkFile(url):
         url = url.replace("-max-1mb.gif", "-mobile.mp4")
         url = url.replace(".webp", "-mobile.mp4")
         url = url.replace("-size_restricted.gif", "-mobile.mp4")  # see above
-    if "media.giphy.com" in url: # mp4 are easier to read and less compressed.
+    if "media.giphy.com" in url:  # mp4 are easier to read and less compressed.
         url = url.replace("media.", "i.")
         url = url.replace(".gif", ".mp4")
     # TODO Check Blacklist
@@ -77,11 +75,35 @@ def checkFile(url):
     if options_1 != -1:
         options_2 = s.find(b'options', options_1 + 1)
         if options_2 != -1:
-            log.err("Found multiple options in same file.") # discord doesnt like this
+            log.err("Found multiple options in same file.")  # discord doesnt like this
             remove(urlName)
             return True
+    if checkFrame(urlName):
+        log.err("File crafted using New method that changes size!.")
+        remove(urlName)
+        return True
     remove(urlName)  # Delete the file
     return False
+
+
+def checkFrame(filePath):  # Slower Testing, but directly checks the file, to check files that may slip by
+    # TODO Add report functionality, so we can find files that bypass
+    try:  # Uses try because cv2 is not required for base functionality
+        import cv2
+        cv2.setUseOptimized(True)
+        log.info("Starting Size Check - Will take time")
+        cap = cv2.VideoCapture(filePath)
+        x, firstFrame = cap.read()
+        frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap = cv2.VideoCapture(filePath)
+        cap.set(frames-2, frames-2)
+        res, frame = cap.read()
+        if frame.shape[0:2] != firstFrame.shape[0:2]:  # Checks second-to-last frame to First frame's size
+            return True
+        return False
+    except ImportError:  # If person running does not have
+        print("importError")
+        return False
 
 
 def checkLink(url):  # Mostly applies to (gfycat and giphy), but uses og:video to find what discord embeds
@@ -105,10 +127,10 @@ def updateBlacklist(url):  # Adds url to blacklist.txt if not already added
             f.write(f'{url}\n')
 
 
-def checkBlacklist(url):  # Reads blacklist.txt to check if url appears
+def checkBlacklist(url):  # Reads blacklist.txt to check if url or parts of url appear
     with open("blacklist.txt") as blacklist:
         for x in blacklist:
-            if f"{url}\n" == x:
+            if f"{url}" in x or x.replace("\n", "") in f"{url}":
                 return True
     return False
 
@@ -132,15 +154,20 @@ async def checkMessage(message):
             if checkBlacklist(url):
                 await message.delete()
                 await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
+                log.err(f'Link "{url}" was found on the blacklist\n')
                 return
             log.warn(f"Getting {url}")
             # If the site uses head meta tags for the file link
-            if checkContent(url) == "text/html":
+            content = checkContent(url)
+            if content == "text/html":
                 log.info("The link was text/html")
                 crasher = checkLink(url)
-            else:
+            elif checkContent(url)[0:5] in ["video", "image"]:
                 log.info("The link was video/gif")
                 crasher = checkFile(url)
+            else:
+                log.info(f"The link uses an unrecognised type '{content}.' Exiting.\n")
+                return
             if crasher:
                 await message.delete()
                 updateBlacklist(url)
@@ -152,8 +179,18 @@ async def checkMessage(message):
 
 @bot.event
 async def on_message(message):
+    print(message)
     await checkMessage(message)
 
+
+@bot.event
+async def on_message_edit(before, after):
+    print(after)
+    if before != after:
+        try:
+            await checkMessage(after)
+        except discord.errors.NotFound:
+            pass
 
 
 bot.run(os.getenv("token"))
