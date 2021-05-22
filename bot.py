@@ -31,7 +31,7 @@ mimes = ["video", "image", "text/"]  # Note, checks five characters!
 
 
 def checkContent(url):  # Uses Return HTTP headers to detect filetype
-    r = requests.head(url, stream=True)
+    r = requests.head(url, stream=True, allow_redirects=True)
     contentType = r.headers["Content-Type"].split(";")[0]
     return checkMIME(contentType)
 
@@ -177,11 +177,13 @@ async def checkMessage(message):
 
 @bot.event
 async def on_message(message):
+    print(message)
     await checkMessage(message)
 
 
 @bot.event
 async def on_message_edit(before, after):
+    print(after)
     try:
         await checkMessage(after)
     except discord.errors.NotFound:
