@@ -90,6 +90,7 @@ def checkFrame(filePath):  # Slower Testing, but directly checks the file, to ch
     # TODO Add report functionality, so we can find files that bypass
     try:  # Uses try because cv2 is not required for base functionality
         import cv2
+        log.info("Starting Size Check - Will take time")
         cap = cv2.VideoCapture(filePath)
         b, firstFrame = cap.read()
         frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -151,6 +152,7 @@ async def checkMessage(message):
             if checkBlacklist(url):
                 await message.delete()
                 await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
+                log.err(f'Link "{url}" was found on the blacklist\n')
                 return
             log.warn(f"Getting {url}")
             # If the site uses head meta tags for the file link
