@@ -31,7 +31,7 @@ mimes = ["video", "image", "text/"]  # Note, checks five characters!
 
 
 def checkContent(url):  # Uses Return HTTP headers to detect filetype
-    r = requests.get(url, stream=True)
+    r = requests.head(url, stream=True)
     contentType = r.headers["Content-Type"].split(";")[0]
     return checkMIME(contentType)
 
@@ -156,12 +156,16 @@ async def checkMessage(message):
                 return
             log.warn(f"Getting {url}")
             # If the site uses head meta tags for the file link
-            if checkContent(url) == "text/html":
+            content = checkContent(url)
+            if content == "text/html":
                 log.info("The link was text/html")
                 crasher = checkLink(url)
-            else:
+            elif checkContent(url)[0:5] in ["video", "image"]:
                 log.info("The link was video/gif")
                 crasher = checkFile(url)
+            else:
+                log.info(f"The link uses an unrecognised type '{content}.' Exiting.\n")
+                return
             if crasher:
                 await message.delete()
                 updateBlacklist(url)
