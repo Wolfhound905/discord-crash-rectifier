@@ -92,10 +92,11 @@ def checkFrame(filePath):  # Slower Testing, but directly checks the file, to ch
         import cv2
         log.info("Starting Size Check - Will take time")
         cap = cv2.VideoCapture(filePath)
-        b, firstFrame = cap.read()
+        x, firstFrame = cap.read()
         frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frames-1)
-        ret, frame = cap.read()
+        cap = cv2.VideoCapture(filePath)
+        cap.set(frames-2, frames-2)
+        res, frame = cap.read()
         if frame.shape[0:2] != firstFrame.shape[0:2]:  # Checks second-to-last frame to First frame's size
             return True
         return False
