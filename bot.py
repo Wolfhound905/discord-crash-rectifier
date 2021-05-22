@@ -1,7 +1,6 @@
 import os
 import re
 from os import path, remove
-
 import discord
 import requests
 from bs4 import BeautifulSoup
@@ -19,8 +18,7 @@ load_dotenv()
 async def on_ready():
     log.info(f"Logged in as {bot.user.name}\n")
     if not path.exists("blacklist.txt"):
-        open("blacklist.txt", "w")   
-
+        open("blacklist.txt", "w")
 
 
 def Find(string):
@@ -52,7 +50,7 @@ def checkFile(url):
         url = url.replace("-max-1mb.gif", "-mobile.mp4")
         url = url.replace(".webp", "-mobile.mp4")
         url = url.replace("-size_restricted.gif", "-mobile.mp4")  # see above
-    if "media.giphy.com" in url: # mp4 are easier to read and less compressed.
+    if "media.giphy.com" in url:  # mp4 are easier to read and less compressed.
         url = url.replace("media.", "i.")
         url = url.replace(".gif", ".mp4")
     # TODO Check Blacklist
@@ -77,7 +75,7 @@ def checkFile(url):
     if options_1 != -1:
         options_2 = s.find(b'options', options_1 + 1)
         if options_2 != -1:
-            log.err("Found multiple options in same file.") # discord doesnt like this
+            log.err("Found multiple options in same file.")  # discord doesnt like this
             remove(urlName)
             return True
     remove(urlName)  # Delete the file
@@ -105,10 +103,10 @@ def updateBlacklist(url):  # Adds url to blacklist.txt if not already added
             f.write(f'{url}\n')
 
 
-def checkBlacklist(url):  # Reads blacklist.txt to check if url appears
+def checkBlacklist(url):  # Reads blacklist.txt to check if url or parts of url appear
     with open("blacklist.txt") as blacklist:
         for x in blacklist:
-            if f"{url}\n" == x:
+            if f"{url}" in x or x.replace("\n", "") in f"{url}":
                 return True
     return False
 
@@ -154,6 +152,13 @@ async def checkMessage(message):
 async def on_message(message):
     await checkMessage(message)
 
+
+@bot.event
+async def on_message_edit(before, after):
+    try:
+        await checkMessage(after)
+    except discord.errors.NotFound:
+        pass
 
 
 bot.run(os.getenv("token"))

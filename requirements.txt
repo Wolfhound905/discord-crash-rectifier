@@ -19,3 +19,4 @@ typing-extensions
 urllib3
 yarl
 python-dotenv
+python-colored-print
