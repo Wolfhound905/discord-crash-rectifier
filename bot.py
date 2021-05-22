@@ -78,8 +78,29 @@ def checkFile(url):
             log.err("Found multiple options in same file.")  # discord doesnt like this
             remove(urlName)
             return True
+    if checkFrame(urlName):
+        log.err("File crafted using New method that changes size!.")
+        remove(urlName)
+        return True
     remove(urlName)  # Delete the file
     return False
+
+
+def checkFrame(filePath):  # Slower Testing, but directly checks the file, to check files that may slip by
+    # TODO Add report functionality, so we can find files that bypass
+    try:  # Uses try because cv2 is not required for base functionality
+        import cv2
+        cap = cv2.VideoCapture(filePath)
+        b, firstFrame = cap.read()
+        frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frames-1)
+        ret, frame = cap.read()
+        if frame.shape[0:2] != firstFrame.shape[0:2]:  # Checks second-to-last frame to First frame's size
+            return True
+        return False
+    except ImportError:  # If person running does not have
+        print("importError")
+        return False
 
 
 def checkLink(url):  # Mostly applies to (gfycat and giphy), but uses og:video to find what discord embeds
