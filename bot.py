@@ -141,14 +141,13 @@ async def checkMessage(message):
     if message.attachments:  # If the message has attachments
         for Attachment in message.attachments:
             url = Attachment.url
-        log.info(url)
-        crasher = checkFile(url)
-        if crasher:
-            await message.delete()
-            await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
-            return
-        else:
-            log.success("This probably doesnt contain a crash\n")
+            log.info(url)
+            crasher = checkFile(url)
+            if crasher:
+                await message.delete()
+                await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
+                return
+        log.success("This probably doesnt contain a crash\n")
     if urls:  # If the message contains a url
         for url in urls:
             if checkBlacklist(url):
@@ -157,13 +156,13 @@ async def checkMessage(message):
                 log.err(f'Link "{url}" was found on the blacklist\n')
                 return
             log.warn(f"Getting {url}")
-            # If the site uses head meta tags for the file link
             content = checkContent(url)
+            # If the site uses head meta tags for the file link
             if content == "text/html":
                 log.info("The link was text/html")
                 crasher = checkLink(url)
-            elif str(content)[0:5] in ["video", "image"]:
-                log.info("The link was video/gif")
+            elif str(content)[0:5] == "video" or content == "image/gif":
+                log.info(f"The link was {content}")
                 crasher = checkFile(url)
             else:
                 log.info(f"The link uses an unrecognised type '{content}.' Exiting.\n")
