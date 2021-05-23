@@ -96,7 +96,7 @@ def checkFrame(filePath):  # Slower Testing, but directly checks the file, to ch
         x, firstFrame = cap.read()
         frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap = cv2.VideoCapture(filePath)
-        cap.set(frames-2, frames-2)
+        cap.set(frames - 2, frames - 2)
         res, frame = cap.read()
         if frame.shape[0:2] != firstFrame.shape[0:2]:  # Checks second-to-last frame to First frame's size
             return True
@@ -135,57 +135,60 @@ def checkBlacklist(url):  # Reads blacklist.txt to check if url or parts of url 
     return False
 
 
-async def checkMessage(message):
-    crashMessage = f"Fun Fact: {message.author.mention} does know crashing gifs are dumb. ||Like them||"
+async def messageType(message):
     urls = Find(message.content)  # Get URLs
     if message.attachments:  # If the message has attachments
-        for Attachment in message.attachments:
-            url = Attachment.url
-            log.info(url)
-            crasher = checkFile(url)
-            if crasher:
-                await message.delete()
-                await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
-                return
-        log.success("This probably doesnt contain a crash\n")
+        attachment = message.attachments[0]
+        done = not await checkMessage(attachment.url, message)
+        if done:
+            return
     if urls:  # If the message contains a url
         for url in urls:
-            if checkBlacklist(url):
-                await message.delete()
-                await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
-                log.err(f'Link "{url}" was found on the blacklist\n')
+            done = not await checkMessage(url, message)
+            if done:
                 return
-            log.warn(f"Getting {url}")
-            content = checkContent(url)
-            # If the site uses head meta tags for the file link
-            if content == "text/html":
-                log.info("The link was text/html")
-                crasher = checkLink(url)
-            elif str(content)[0:5] == "video" or content == "image/gif":
-                log.info(f"The link was {content}")
-                crasher = checkFile(url)
-            else:
-                log.info(f"The link uses an unrecognised type '{content}.' Exiting.\n")
-                return
-            if crasher:
-                await message.delete()
-                updateBlacklist(url)
-                await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
-                return
-            else:
-                log.success("This probably doesnt contain a crash\n")
+    return
+
+
+async def checkMessage(url, message):
+    crashMessage = f"Fun Fact: {message.author.mention} does know crashing gifs are dumb. ||Like them||"
+    if checkBlacklist(url):
+        await message.delete()
+        await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
+        log.err(f'Link "{url}" was found on the blacklist\n')
+        return True
+    log.warn(f"Getting {url}")
+    content = checkContent(url)
+    # If the site uses head meta tags for the file link
+    if content == "text/html":
+        log.info("The link was text/html")
+        crasher = checkLink(url)
+    elif str(content)[0:5] == "video" or content == "image/gif":
+        log.info(f"The link was {content}")
+        crasher = checkFile(url)
+    else:
+        log.info(f"The link uses an unrecognised type '{content}.' Exiting.\n")
+        return False
+    if crasher:
+        await message.delete()
+        updateBlacklist(url)
+        await message.channel.send(crashMessage, allowed_mentions=discord.AllowedMentions.none())
+        return True
+    else:
+        log.success("This probably doesnt contain a crash\n")
+        return False
 
 
 @bot.event
 async def on_message(message):
-    await checkMessage(message)
+    await messageType(message)
 
 
 @bot.event
 async def on_message_edit(before, after):
     if before != after:
         try:
-            await checkMessage(after)
+            await messageType(after)
         except discord.errors.NotFound:
             pass
 
